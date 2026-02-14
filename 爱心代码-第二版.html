@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>专属你的浪漫</title>
+    <link href="https://fonts.googleapis.com/css2?family=Zhi+Mang+Xing&display=swap" rel="stylesheet">
+    <style>
+        body { margin: 0; background: #050505; overflow: hidden; font-family: "Microsoft YaHei", sans-serif; }
+        canvas { display: block; }
+
+        .text-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            /* 行楷字体 */
+            font-family: 'Zhi Mang Xing', cursive;
+            font-size: 4.5rem;
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 10;
+
+            /* 橘黄色渐变效果 */
+            background: linear-gradient(to bottom, #ffcc33 0%, #ff8800 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+
+            /* 初始发光效果 */
+            filter: drop-shadow(0 0 15px rgba(255, 136, 0, 0.6));
+            transition: transform 0.1s ease-out; /* 让缩放更平滑 */
+        }
+    </style>
+</head>
+<body>
+    <div id="text" class="text-overlay">我中意你啊bb</div>
+    <canvas id="heart"></canvas>
+
+    <script>
+        const canvas = document.getElementById('heart');
+        const textElement = document.getElementById('text');
+        const ctx = canvas.getContext('2d');
+        let width, height, particles = [], fireworks = [];
+
+        const settings = {
+            particleCount: 2200,
+            heartScale: 13,
+            range: 22
+        };
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        function getHeartPoint(t) {
+            let x = 16 * Math.pow(Math.sin(t), 3);
+            let y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+            return { x: x * settings.heartScale, y: -y * settings.heartScale };
+        }
+
+        class Particle {
+            constructor() { this.reset(); }
+            reset() {
+                this.t = Math.random() * Math.PI * 2;
+                const pos = getHeartPoint(this.t);
+                const offset = Math.random() * settings.range;
+                const angle = Math.random() * Math.PI * 2;
+                this.baseX = pos.x + Math.cos(angle) * offset;
+                this.baseY = pos.y + Math.sin(angle) * offset;
+                this.z = (Math.random() - 0.5) * 150;
+                this.size = Math.random() * 2 + 0.5;
+                this.alpha = Math.random() * 0.6 + 0.4;
+                // 粒子颜色也微调为偏橘红以配合整体色调
+                this.color = `rgba(255, ${Math.floor(Math.random()*80 + 40)}, ${Math.floor(Math.random()*60)}, `;
+            }
+            update(time, pulse) {
+                this.x = this.baseX * pulse + Math.sin(time + this.z) * 4;
+                this.y = this.baseY * pulse + Math.cos(time + this.z) * 4;
+            }
+            draw() {
+                const x = this.x + width / 2;
+                const y = this.y + height / 2;
+                ctx.fillStyle = this.color + this.alpha + ")";
+                ctx.beginPath();
+                ctx.arc(x, y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        class Firework {
+            constructor() {
+                this.x = Math.random() * width;
+                this.y = height;
+                this.targetY = Math.random() * (height * 0.4);
+                this.speed = Math.random() * 3 + 5;
+                this.exploded = false;
+                this.sparks = [];
+            }
+            update() {
+                if (!this.exploded) {
+                    this.y -= this.speed;
+                    if (this.y <= this.targetY) {
+                        this.exploded = true;
+                        this.createSparks();
+                    }
+                } else {
+                    this.sparks.forEach((s, i) => {
+                        s.x += s.vx; s.y += s.vy;
+                        s.vy += 0.05; s.alpha -= 0.015;
+                        if (s.alpha <= 0) this.sparks.splice(i, 1);
+                    });
+                }
+            }
+            createSparks() {
+                for (let i = 0; i < 40; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const force = Math.random() * 5 + 2;
+                    this.sparks.push({
+                        x: this.x, y: this.y,
+                        vx: Math.cos(angle) * force,
+                        vy: Math.sin(angle) * force,
+                        alpha: 1,
+                        color: `hsla(${Math.random() * 40 + 20}, 100%, 60%, ` // 烟花也偏向橘金色
+                    });
+                }
+            }
+            draw() {
+                if (!this.exploded) {
+                    ctx.fillStyle = "#ffaa00";
+                    ctx.beginPath(); ctx.arc(this.x, this.y, 2, 0, Math.PI * 2); ctx.fill();
+                } else {
+                    this.sparks.forEach(s => {
+                        ctx.fillStyle = s.color + s.alpha + ")";
+                        ctx.beginPath(); ctx.arc(s.x, s.y, 1.5, 0, Math.PI * 2); ctx.fill();
+                    });
+                }
+            }
+        }
+
+        for (let i = 0; i < settings.particleCount; i++) particles.push(new Particle());
+
+        function render(time) {
+            const t = time / 1000;
+            // 计算统一的跳动系数
+            const pulse = 1 + Math.sin(t * 3.5) * 0.12;
+
+            // 同步更新文字缩放：将 pulse 系数应用到 CSS transform
+            textElement.style.transform = `translate(-50%, -50%) scale(${pulse})`;
+            // 随跳动增加发光强度
+            textElement.style.filter = `drop-shadow(0 0 ${10 + pulse * 10}px rgba(255, 136, 0, ${0.4 + pulse * 0.2}))`;
+
+            ctx.fillStyle = 'rgba(5, 5, 5, 0.18)';
+            ctx.fillRect(0, 0, width, height);
+
+            if (Math.random() < 0.025) fireworks.push(new Firework());
+
+            particles.forEach(p => { p.update(t, pulse); p.draw(); });
+
+            fireworks.forEach((f, i) => {
+                f.update();
+                f.draw();
+                if (f.exploded && f.sparks.length === 0) fireworks.splice(i, 1);
+            });
+
+            requestAnimationFrame(render);
+        }
+        render(0);
+    </script>
+</body>
+</html>
